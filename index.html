@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>College Local Anonymous Network</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      margin: 0;
+      padding: 0;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      background: #4338ca;
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 70% 30%;
+      gap: 20px;
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 0 16px;
+      width: 100%;
+    }
+    .posts-container {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+      overflow-y: auto;
+      max-height: 80vh;
+      position: relative;
+    }
+    .posts-container h2 {
+      margin-top: 0;
+      color: #4338ca;
+      border-bottom: 1px solid #eaeaea;
+      padding-bottom: 10px;
+      position: sticky;
+      top: 0;
+      background: #fff;
+      z-index: 10;
+    }
+    .posts-list > div {
+      border-bottom: 1px solid #eaeaea;
+      padding: 16px 0;
+    }
+    .posts-list h3 {
+      margin: 0 0 8px;
+      color: #3c366b;
+    }
+    .posts-list p {
+      margin: 0;
+      line-height: 1.6;
+      white-space: pre-line;
+    }
+    aside {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+      height: fit-content;
+    }
+    aside h3 { margin-top: 0; color: #4338ca; }
+    input[type="text"], textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      font-family: inherit;
+      font-size: 14px;
+    }
+    textarea { min-height: 120px; resize: vertical; }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #fbbf24;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    button:hover { background: #f59e0b; }
+
+    /* New Post Indicator */
+    #newPostIndicator {
+      display: none;
+      position: sticky;
+      bottom: 0;
+      background: #fbbf24;
+      color: #000;
+      text-align: center;
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 8px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    @media (max-width: 768px) {
+      main { grid-template-columns: 1fr; }
+      .posts-container { max-height: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>College Local Anonymous Network</h1>
+    <p>Share your thoughts freely, stay anonymous!</p>
+  </header>
+
+  <main>
+    <section class="posts-container">
+      <h2>All Posts</h2>
+      <div id="posts" class="posts-list"></div>
+      <!-- New Post Indicator -->
+      <div id="newPostIndicator">📢 New post available — Click to view</div>
+    </section>
+
+    <aside>
+      <h3>Create a Post</h3>
+      <form id="postForm" action="/addPost" method="post">
+        <input type="text" name="title" placeholder="Name" maxlength="100" required />
+        <textarea name="content" placeholder="Write your post here..." maxlength="2000" required></textarea>
+        <button type="submit">Submit</button>
+      </form>
+    </aside>
+  </main>
+
+  <script>
+    let displayedPosts = new Set();
+    const postsDiv = document.getElementById('posts');
+    const newPostIndicator = document.getElementById('newPostIndicator');
+    const postsContainer = document.querySelector('.posts-container');
+
+    async function fetchPosts(initialLoad = false) {
+      try {
+        const res = await fetch('/posts');
+        if (!res.ok) throw new Error("Failed to fetch");
+        const posts = await res.json();
+
+        renderPosts(posts);
+
+        // Scroll to bottom on initial load
+        if (initialLoad) {
+          postsContainer.scrollTop = postsContainer.scrollHeight;
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function renderPosts(posts) {
+      // Sort posts by ID ascending so oldest first
+      posts.sort((a, b) => a.id - b.id);
+
+      let newPostAdded = false;
+
+      posts.forEach(post => {
+        if (!displayedPosts.has(post.id)) {
+          displayedPosts.add(post.id);
+          const postElem = document.createElement('div');
+          postElem.innerHTML = `<h3>${escapeHtml(post.title)}</h3><p>${escapeHtml(post.content).replace(/\n/g,'<br>')}</p>`;
+          postsDiv.appendChild(postElem);
+          newPostAdded = true;
+        }
+      });
+
+      if (newPostAdded) {
+        if (!isScrolledToBottom()) {
+          newPostIndicator.style.display = "block";
+        } else {
+          scrollToLatestPost();
+        }
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function scrollToLatestPost() {
+      postsContainer.scrollTop = postsContainer.scrollHeight;
+      newPostIndicator.style.display = "none";
+    }
+
+    function isScrolledToBottom() {
+      return postsContainer.scrollTop + postsContainer.clientHeight >= postsContainer.scrollHeight - 5;
+    }
+
+    newPostIndicator.addEventListener("click", scrollToLatestPost);
+
+    postsContainer.addEventListener("scroll", () => {
+      if (isScrolledToBottom()) {
+        newPostIndicator.style.display = "none";
+      }
+    });
+
+    document.getElementById('postForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      let form = e.target;
+      let formData = new FormData(form);
+
+      try {
+        let response = await fetch('/addPost', {
+          method: 'POST',
+          body: new URLSearchParams(formData)
+        });
+        if (response.ok) {
+          await response.json();
+          form.reset();
+          fetchPosts();
+        } else {
+          alert("Failed to submit");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Error submitting post");
+      }
+    });
+
+    // Initial fetch
+    fetchPosts(true);
+    setInterval(() => fetchPosts(), 10000);
+  </script>
+</body>
+</html>
